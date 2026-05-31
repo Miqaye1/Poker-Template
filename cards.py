@@ -61,22 +61,22 @@ class Rank(IntEnum):
 class Card:
     rank: Rank
     suit: Suit
+
     def __str__(self) -> str:
-        label = self.rank.label
-        rank = self.rank.symbol
-        # TODO: Task 3 - return a string representation of the card, e.g. "AH" for Ace of Hearts
-        return 
+        return f"{self.rank.label}{self.suit.symbol}"
 
 
 class Deck:
     def __init__(self) -> None:
-        # TODO: Task 4 - initialize the deck with all 52 cards 
+        self._cards = [Card(rank, suit) for rank in Rank for suit in Suit]
         shuffle(self._cards)
 
     def draw(self, count: int = 1) -> list[Card]:
         if count < 1:
             raise ValueError("count must be at least 1")
-        # TODO: Task 4 - check if there are enough cards left in the deck, 
-        # and if so, return the drawn cards and remove them from the deck
-        return []
+        if count > len(self._cards):
+            raise ValueError("not enough cards in the deck")
+        drawn = self._cards[:count]
+        self._cards = self._cards[count:]
+        return drawn
 
