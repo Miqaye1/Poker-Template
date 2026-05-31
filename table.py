@@ -22,4 +22,3 @@ class Table:
             self.pot += player.current_bet
     # TODO: Task 2 - create and implement the method reset(self) -> None 
     # TODO: Task 3 - create and implement the method add_to_pot(self, amount: int) -> None
-    pass
