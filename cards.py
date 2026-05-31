@@ -9,36 +9,63 @@ from random import shuffle
 
 class Suit(IntEnum):
     CLUBS = 0
-    # TODO: Task 1 - continue here 
+    DIAMONDS = 1
+    HEARTS = 2
+    SPADES = 3
 
     @property
     def symbol(self) -> str:
         return {
             Suit.CLUBS: "C",
-            # TODO: Task 1 - map each Suit to its one-letter symbol
+            Suit.DIAMONDS: "D",
+            Suit.HEARTS: "H",
+            Suit.SPADES: "S",
         }[self]
 
 
 class Rank(IntEnum):
     TWO = 2
-    # TODO: Task 2 - continue until ACE = 14 
+    THREE = 3
+    FOUR = 4
+    FIVE = 5
+    SIX = 6
+    SEVEN = 7
+    EIGHT = 8
+    NINE = 9
+    TEN = 10
+    JACK = 11
+    QUEEN = 12
+    KING = 13
+    ACE = 14
 
     @property
     def label(self) -> str:
         return {
             Rank.TWO: "2",
-            # TODO: Task 2 - continue the mapping 
+            Rank.THREE: "3",
+            Rank.FOUR: "4", 
+            Rank.FIVE: "5", 
+            Rank.SIX: "6",
+            Rank.SEVEN: "7",
+            Rank.EIGHT: "8",
+            Rank.NINE: "9",
+            Rank.TEN: "T",
+            Rank.JACK: "J",
+            Rank.QUEEN: "Q",
+            Rank.KING: "K",
+            Rank.ACE: "A",
         }[self]
 
 
 @dataclass(frozen=True)
 class Card:
     rank: Rank
-    # TODO: Task 3 - continue here 
-
+    suit: Suit
     def __str__(self) -> str:
+        label = self.rank.label
+        rank = self.rank.symbol
         # TODO: Task 3 - return a string representation of the card, e.g. "AH" for Ace of Hearts
-        return ""
+        return 
 
 
 class Deck:

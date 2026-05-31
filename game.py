@@ -10,7 +10,17 @@ from ui import ConsoleUI
 
 
 class TexasHoldemGame:
-    def __init__(self, players: list[Player], small_blind: int = 5, big_blind: int = 10) -> None:
+    def __init__(self, players: list[Player], table: Table, hand_evaluator: HandEvaluator, consoleUI : ConsoleUI, small_blind: int = 5, big_blind: int = 10) -> None:
+        if len(players) < 2:
+            raise ValueError(f"There should be at least 2 players to start the game")
+            self.players = players
+            self.small_blind = small_blind
+            self.big_blind = big_blind
+            self.game_table: Table = table
+            self.hand_evaluator: HandEvaluator = hand_evaluator
+            self.consoleUI: ConsoleUI = consoleUI
+
+            
         # TODO: Task 1 - check that there are at least 2 players, and if so, 
         # initialize the game state with the players, blinds, table, hand evaluator, and UI
         pass
