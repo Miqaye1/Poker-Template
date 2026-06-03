@@ -103,4 +103,4 @@ def run_simulations(num_games: int = 5000):
 
 
 if __name__ == "__main__":
-    run_simulations(50)
+    run_simulations(500) # Here should be a large number, but it will take long to complete the simulations
