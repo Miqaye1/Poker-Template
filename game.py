@@ -147,6 +147,7 @@ class TexasHoldemGame:
                     action = self.consoleUI.ask_action(player, call_amount)
                 else:
                     action, raise_amount = self._bot_action(player, call_amount)
+<<<<<<< HEAD
                     if not self.silent:
                         if action == "fold":
                             print(f"{player.name} folds")
@@ -154,6 +155,15 @@ class TexasHoldemGame:
                             print(f"{player.name} calls {call_amount}")
                         elif action == "raise":
                             print(f"{player.name} raises {raise_amount}")
+=======
+                    # fix: print what the bot actually did
+                    if action == "fold":
+                        print(f"{player.name} folds")
+                    elif action == "call":
+                        print(f"{player.name} calls {call_amount}")
+                    elif action == "raise":
+                        print(f"{player.name} raises {raise_amount}")
+>>>>>>> 2806fc85ee4b920ed44d3b8bc7b92587b5491bec
                 players_who_acted.add(player_index)
                 if action == "fold":
                     player.folded = True
@@ -163,6 +173,7 @@ class TexasHoldemGame:
                 elif action == "raise":
                     if player.is_human:
                         raise_amount = self.consoleUI.ask_raise_amount(minimum=self.big_blind, maximum=player.chips)
+<<<<<<< HEAD
                     else:
                         win_prob = self._monte_carlo(player)
                         if win_prob > 0.85:
@@ -170,6 +181,8 @@ class TexasHoldemGame:
                         elif win_prob > 0.70:
                             raise_amount = self.game_table.pot // 2
                         raise_amount = max(self.big_blind, min(raise_amount, player.chips))
+=======
+>>>>>>> 2806fc85ee4b920ed44d3b8bc7b92587b5491bec
                     total = call_amount + raise_amount
                     final_bet = player.bet(total)
                     self.game_table.add_to_pot(final_bet)
@@ -185,11 +198,16 @@ class TexasHoldemGame:
             i += 1
 
     def _bot_action(self, player: Player, call_amount: int) -> tuple[str, int]:
+<<<<<<< HEAD
         if hasattr(self, 'ml_bot') and player.name == "ML Bot":
             return self.ml_bot.decide(player, self, call_amount, self.current_street)
         
         win_prob = self._monte_carlo(player)
 
+=======
+        win_prob = self._monte_carlo(player)
+ 
+>>>>>>> 2806fc85ee4b920ed44d3b8bc7b92587b5491bec
         if win_prob > 0.85:
             raise_amount = min(self.game_table.pot, player.chips)
         elif win_prob > 0.75:
