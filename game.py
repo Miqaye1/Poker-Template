@@ -6,10 +6,10 @@ from evaluator import HandEvaluator
 from player import Player
 from table import Table
 from ui import ConsoleUI
-
+from ml_bot import MLBot
 
 class TexasHoldemGame:
-    def __init__(self, players, table, hand_evaluator, consoleUI, small_blind=5, big_blind=10):
+    def __init__(self, players, table, hand_evaluator, consoleUI, small_blind=5, big_blind=10, silent=False):
         if len(players) < 2:
             raise ValueError("There should be at least 2 players to start the game")
         self.players = players
@@ -19,16 +19,26 @@ class TexasHoldemGame:
         self.hand_evaluator = hand_evaluator
         self.consoleUI = consoleUI
         self.dealer_index = 0
+        self.silent = silent
+        self.current_street = "PreFlop"
+
+        try:
+            self.ml_bot = MLBot()
+        except:
+            self.ml_bot = None
+
 
     def play_game(self) -> None:
         while True:
             self.players = [p for p in self.players if p.chips > 0]
             if len(self.players) == 1:
-                print(f"🏆 {self.players[0].name} wins the game with {self.players[0].chips} chips!")
+                if not self.silent:
+                    print(f"🏆 {self.players[0].name} wins the game with {self.players[0].chips} chips!")
                 break
-            print("Chips:")
-            for p in self.players:
-                print(f"  {p.name}: {p.chips}")
+            if not self.silent:
+                print("Chips:")
+                for p in self.players:
+                    print(f"  {p.name}: {p.chips}")
             self.play_hand()
             self.dealer_index = (self.dealer_index + 1) % len(self.players)
 
@@ -43,7 +53,7 @@ class TexasHoldemGame:
 
             community = list(self.game_table.table_cards)
             remaining = 5 - len(community)
-            if remaining > 0:                               # fix: skip draw(0) on the River
+            if remaining > 0:
                 community += deck.draw(remaining)
 
             player_rank = self.hand_evaluator.best_rank(player.hole_cards + community)
@@ -88,30 +98,41 @@ class TexasHoldemGame:
         self.players[big].bet(self.big_blind)
         self.game_table.add_to_pot(self.small_blind)
         self.game_table.add_to_pot(self.big_blind)
-        print(f"{self.players[small].name} posts {self.small_blind}; {self.players[big].name} posts {self.big_blind}")
+        if not self.silent:
+            print(f"{self.players[small].name} posts {self.small_blind}; {self.players[big].name} posts {self.big_blind}")
 
     def _show_human_cards(self) -> None:
         for player in self.players:
             if player.is_human:
-                print(f"{player.name}: {self.consoleUI.format_cards(player.hole_cards)}")
+                if not self.silent:
+                    print(f"{player.name}: {self.consoleUI.format_cards(player.hole_cards)}")
 
     def _deal_community(self, deck, count, street) -> None:
         if self._only_one_player_left():
             return
         self.game_table.table_cards.extend(deck.draw(count))
-        print(f"\n-- {street} --")
-        print(f"Board: {self.consoleUI.format_cards(self.game_table.table_cards)}")  # fix: show the board
+        if not self.silent:
+            print(f"\n-- {street} --")
+            print(f"Board: {self.consoleUI.format_cards(self.game_table.table_cards)}")
 
     def _betting_round(self, street: str) -> None:
+        self.current_street = street
         if street == "PreFlop":
             start_player = (self.dealer_index + 3) % len(self.players)
         else:
             start_player = (self.dealer_index + 1) % len(self.players)
+            for player in self.players:
+                player.current_bet = 0
         betting_not_finished = True
         n = len(self.players)
         i = 0
+        max_iterations = len(self.players) * 10
+        iteration_count = 0
         players_who_acted: set[int] = set()
         while betting_not_finished:
+            iteration_count += 1
+            if iteration_count > max_iterations:
+                break
             player_index = (start_player + i) % n
             player = self.players[player_index]
             active_players = [p for p in self.players if not p.folded]
@@ -125,14 +146,14 @@ class TexasHoldemGame:
                     self.consoleUI.show_table(self.game_table.table_cards, self.game_table.pot)
                     action = self.consoleUI.ask_action(player, call_amount)
                 else:
-                    action = self._bot_action(player, call_amount)
-                    # fix: print what the bot actually did
-                    if action == "fold":
-                        print(f"{player.name} folds")
-                    elif action == "call":
-                        print(f"{player.name} calls {call_amount}")
-                    elif action == "raise":
-                        print(f"{player.name} raises {self.big_blind}")
+                    action, raise_amount = self._bot_action(player, call_amount)
+                    if not self.silent:
+                        if action == "fold":
+                            print(f"{player.name} folds")
+                        elif action == "call":
+                            print(f"{player.name} calls {call_amount}")
+                        elif action == "raise":
+                            print(f"{player.name} raises {raise_amount}")
                 players_who_acted.add(player_index)
                 if action == "fold":
                     player.folded = True
@@ -143,7 +164,12 @@ class TexasHoldemGame:
                     if player.is_human:
                         raise_amount = self.consoleUI.ask_raise_amount(minimum=self.big_blind, maximum=player.chips)
                     else:
-                        raise_amount = self.big_blind
+                        win_prob = self._monte_carlo(player)
+                        if win_prob > 0.85:
+                            raise_amount = player.chips // 2
+                        elif win_prob > 0.70:
+                            raise_amount = self.game_table.pot // 2
+                        raise_amount = max(self.big_blind, min(raise_amount, player.chips))
                     total = call_amount + raise_amount
                     final_bet = player.bet(total)
                     self.game_table.add_to_pot(final_bet)
@@ -158,41 +184,55 @@ class TexasHoldemGame:
                     betting_not_finished = False
             i += 1
 
-    def _bot_action(self, player: Player, call_amount: int) -> str:
+    def _bot_action(self, player: Player, call_amount: int) -> tuple[str, int]:
+        if hasattr(self, 'ml_bot') and player.name == "ML Bot":
+            return self.ml_bot.decide(player, self, call_amount, self.current_street)
+        
         win_prob = self._monte_carlo(player)
 
-        if call_amount == 0:
-            return "raise" if win_prob > 0.6 else "call"
-
-        pot_odds = call_amount / (self.game_table.pot + call_amount)
-
-        if win_prob > 0.65:
-            return "raise"
-        elif win_prob >= pot_odds:
-            return "call"
+        if win_prob > 0.85:
+            raise_amount = min(self.game_table.pot, player.chips)
+        elif win_prob > 0.75:
+            raise_amount = min(self.big_blind * 3, player.chips)
         else:
-            return "fold"
+            raise_amount = min(self.big_blind * 2, player.chips)
+ 
+        if call_amount == 0:
+            return ("raise", raise_amount) if win_prob > 0.6 else ("call", 0)
+ 
+        pot_odds = call_amount / (self.game_table.pot + call_amount)
+ 
+        if win_prob > 0.65:
+            return "raise", raise_amount
+        elif win_prob >= pot_odds:
+            return "call", 0
+        else:
+            return "fold", 0
 
     def _showdown(self) -> None:
         active_players = [p for p in self.players if not p.folded]
         if len(active_players) == 1:
             winner = active_players[0]
             winner.chips += self.game_table.pot
-            print(f"\n{winner.name} wins {self.game_table.pot} chips (everyone else folded)!")
+            if not self.silent:
+                print(f"\n{winner.name} wins {self.game_table.pot} chips (everyone else folded)!")
             return
-        print("\n-- Showdown --")
+        if not self.silent:
+            print("\n-- Showdown --")
         best_rank = None
         winner = None
         for player in active_players:
             all_cards = player.hole_cards + self.game_table.table_cards
             rank = self.hand_evaluator.best_rank(all_cards)
             hand_name = rank.category_name()
-            print(f"{player.name}: {self.consoleUI.format_cards(player.hole_cards)} → {hand_name}")
+            if not self.silent:
+                print(f"{player.name}: {self.consoleUI.format_cards(player.hole_cards)} → {hand_name}")
             if best_rank is None or rank > best_rank:
                 best_rank = rank
                 winner = player
         winner.chips += self.game_table.pot
-        print(f"\n{winner.name} wins {self.game_table.pot} chips with {best_rank.category_name()}!")
+        if not self.silent:
+            print(f"\n{winner.name} wins {self.game_table.pot} chips with {best_rank.category_name()}!")
 
     def _only_one_player_left(self) -> bool:
         active_players = [p for p in self.players if not p.folded]
