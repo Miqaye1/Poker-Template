@@ -107,6 +107,8 @@ class TexasHoldemGame:
             start_player = (self.dealer_index + 3) % len(self.players)
         else:
             start_player = (self.dealer_index + 1) % len(self.players)
+            for player in self.players:
+                player.current_bet = 0
         betting_not_finished = True
         n = len(self.players)
         i = 0
