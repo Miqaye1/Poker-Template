@@ -163,13 +163,6 @@ class TexasHoldemGame:
                 elif action == "raise":
                     if player.is_human:
                         raise_amount = self.consoleUI.ask_raise_amount(minimum=self.big_blind, maximum=player.chips)
-                    else:
-                        win_prob = self._monte_carlo(player)
-                        if win_prob > 0.85:
-                            raise_amount = player.chips // 2
-                        elif win_prob > 0.70:
-                            raise_amount = self.game_table.pot // 2
-                        raise_amount = max(self.big_blind, min(raise_amount, player.chips))
                     total = call_amount + raise_amount
                     final_bet = player.bet(total)
                     self.game_table.add_to_pot(final_bet)
