@@ -125,14 +125,14 @@ class TexasHoldemGame:
                     self.consoleUI.show_table(self.game_table.table_cards, self.game_table.pot)
                     action = self.consoleUI.ask_action(player, call_amount)
                 else:
-                    action = self._bot_action(player, call_amount)
+                    action, raise_amount = self._bot_action(player, call_amount)
                     # fix: print what the bot actually did
                     if action == "fold":
                         print(f"{player.name} folds")
                     elif action == "call":
                         print(f"{player.name} calls {call_amount}")
                     elif action == "raise":
-                        print(f"{player.name} raises {self.big_blind}")
+                        print(f"{player.name} raises {raise_amount}")
                 players_who_acted.add(player_index)
                 if action == "fold":
                     player.folded = True
@@ -142,8 +142,6 @@ class TexasHoldemGame:
                 elif action == "raise":
                     if player.is_human:
                         raise_amount = self.consoleUI.ask_raise_amount(minimum=self.big_blind, maximum=player.chips)
-                    else:
-                        raise_amount = self.big_blind
                     total = call_amount + raise_amount
                     final_bet = player.bet(total)
                     self.game_table.add_to_pot(final_bet)
@@ -158,20 +156,27 @@ class TexasHoldemGame:
                     betting_not_finished = False
             i += 1
 
-    def _bot_action(self, player: Player, call_amount: int) -> str:
+    def _bot_action(self, player: Player, call_amount: int) -> tuple[str, int]:
         win_prob = self._monte_carlo(player)
-
-        if call_amount == 0:
-            return "raise" if win_prob > 0.6 else "call"
-
-        pot_odds = call_amount / (self.game_table.pot + call_amount)
-
-        if win_prob > 0.65:
-            return "raise"
-        elif win_prob >= pot_odds:
-            return "call"
+ 
+        if win_prob > 0.85:
+            raise_amount = min(self.game_table.pot, player.chips)
+        elif win_prob > 0.75:
+            raise_amount = min(self.big_blind * 3, player.chips)
         else:
-            return "fold"
+            raise_amount = min(self.big_blind * 2, player.chips)
+ 
+        if call_amount == 0:
+            return ("raise", raise_amount) if win_prob > 0.6 else ("call", 0)
+ 
+        pot_odds = call_amount / (self.game_table.pot + call_amount)
+ 
+        if win_prob > 0.65:
+            return "raise", raise_amount
+        elif win_prob >= pot_odds:
+            return "call", 0
+        else:
+            return "fold", 0
 
     def _showdown(self) -> None:
         active_players = [p for p in self.players if not p.folded]
